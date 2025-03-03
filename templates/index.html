@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Team Builder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 16px;
+            color: #666;
+        }
+
+        .team-slots {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .slot {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input {
+            width: 100%;
+            max-width: 180px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .suggestions {
+            position: absolute;
+            top: 40px;
+            width: 100%;
+            max-width: 180px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: none;
+            z-index: 10;
+        }
+
+        .suggestions li {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .suggestions li:hover {
+            background-color: #007bff;
+            color: white;
+        }
+
+        button {
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .selected-pokemon {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .selected-pokemon img {
+            width: 50px;
+            height: 50px;
+        }
+
+        .selected-pokemon .remove {
+            color: red;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .team-slots {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Estilos para el botón de borrar (la "×") */
+        .remove-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1; /* Para que esté por encima de otros elementos */
+        }
+
+        .remove-btn:hover {
+            background-color: #cc0000;
+        }
+
+        /* Estilos para el contenedor del Pokémon seleccionado */
+        .selected-pokemon {
+            position: relative; /* Para que la "×" se posicione correctamente */
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .selected-pokemon img {
+            width: 50px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Pokémon Team Builder 🎮</h1>
+    <p>Selecciona tu equipo rival y obtén recomendaciones.</p>
+    <div class="team-slots">
+        <!-- Repetir esto para los 6 slots -->
+        <div class="slot">
+            <input type="text" class="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions"></ul>
+            <div class="selected-pokemon"></div>
+        </div>
+        <!-- ... (repetir para los otros 5 slots) ... -->
+        <div class="slot">
+            <input type="text" class="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions"></ul>
+            <div class="selected-pokemon"></div>
+        </div>
+        <div class="slot">
+            <input type="text" class="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions"></ul>
+            <div class="selected-pokemon"></div>
+        </div>
+        <div class="slot">
+            <input type="text" class="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions"></ul>
+            <div class="selected-pokemon"></div>
+        </div>
+        <div class="slot">
+            <input type="text" class="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions"></ul>
+            <div class="selected-pokemon"></div>
+        </div>
+        <div class="slot">
+            <input type="text" class="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions"></ul>
+            <div class="selected-pokemon"></div>
+        </div>
+    </div>
+    <button id="recomendar-btn">Recomendar Equipo</button>
+</div>
+
+<script>
+    let pokemonList = [];
+    const selectedPokemon = new Set();
+
+    // Obtener la lista de Pokémon desde el backend
+    async function fetchPokemonList() {
+        try {
+            const response = await fetch("/pokemon");
+            const data = await response.json();
+            pokemonList = data;
+        } catch (error) {
+            console.error("Error al obtener la lista de Pokémon:", error);
+        }
+    }
+
+    // Llamar a la función al cargar la página
+    fetchPokemonList();
+
+    // Lógica de búsqueda y selección de Pokémon
+    document.querySelectorAll(".pokemon-input").forEach(input => {
+        input.addEventListener("input", function () {
+            let value = this.value.toLowerCase();
+            let suggestionsBox = this.nextElementSibling;
+            suggestionsBox.innerHTML = "";
+
+            if (value.length > 0) {
+                let filtered = pokemonList.filter(pokemon =>
+                    pokemon.toLowerCase().startsWith(value) && !selectedPokemon.has(pokemon)
+                );
+
+                if (filtered.length > 0) {
+                    suggestionsBox.style.display = "block";
+                    filtered.forEach(pokemon => {
+                        let listItem = document.createElement("li");
+                        listItem.textContent = pokemon;
+                        listItem.addEventListener("click", () => {
+                            input.value = pokemon;
+                            selectedPokemon.add(pokemon);
+                            suggestionsBox.style.display = "none";
+                            updateSelectedPokemon(input, pokemon);
+                        });
+                        suggestionsBox.appendChild(listItem);
+                    });
+                } else {
+                    suggestionsBox.style.display = "none";
+                }
+            } else {
+                suggestionsBox.style.display = "none";
+            }
+        });
+    });
+
+    // Actualizar el Pokémon seleccionado
+    function updateSelectedPokemon(input, pokemon) {
+        let selectedDiv = input.nextElementSibling.nextElementSibling;
+        selectedDiv.innerHTML = `
+            <img src="https://img.pokemondb.net/sprites/home/normal/${pokemon.toLowerCase()}.png" alt="${pokemon}">
+            <br>${pokemon}
+        `;
+    }
+
+    // Eliminar un Pokémon seleccionado
+    function removePokemon(input) {
+        let selectedDiv = input.nextElementSibling.nextElementSibling;
+        selectedDiv.innerHTML = ""; // Limpiar la imagen y el nombre
+        input.value = ""; // Limpiar el input
+        selectedPokemon.delete(input.value); // Eliminar el Pokémon del conjunto
+    }
+
+    // Enviar el equipo rival al backend para obtener recomendaciones
+    document.getElementById("recomendar-btn").addEventListener("click", async () => {
+        if (selectedPokemon.size === 6) {
+            const equipoRival = Array.from(selectedPokemon);
+            try {
+                const response = await fetch("/recomendar", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ equipo: equipoRival }),
+                });
+                const data = await response.json();
+                if (data.equipo_recomendado) {
+                    alert("Equipo recomendado: " + data.equipo_recomendado.join(", "));
+                } else {
+                    alert("Error al obtener recomendaciones.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error al conectar con el servidor.");
+            }
+        } else {
+            alert("Por favor, selecciona 6 Pokémon.");
+        }
+    });
+
+    // Agregar evento de clic a los inputs para borrar el Pokémon seleccionado
+    document.querySelectorAll(".pokemon-input").forEach(input => {
+        input.addEventListener("click", function () {
+            removePokemon(this);
+        });
+    });
+</script>
+
+</body>
+</html>
