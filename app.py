@@ -11,12 +11,24 @@ session.row_factory = dict_factory  # Para obtener los resultados como diccionar
 
 # Matriz de efectividad de tipos en Pokémon (simplificada para el ejemplo)
 type_chart = {
-    'Acero': {'Hada': 2, 'Hielo': 2, 'Roca': 2, 'Acero': 0.5, 'Agua': 0.5, 'Eléctrico': 0.5, 'Fuego': 0.5},
-    'Agua': {'Fuego': 2, 'Roca': 2, 'Tierra': 2, 'Agua': 0.5, 'Planta': 0.5, 'Dragón': 0.5},
-    'Eléctrico': {'Agua': 2, 'Volador': 2, 'Eléctrico': 0.5, 'Planta': 0.5, 'Dragón': 0.5, 'Tierra': 0},
-    'Fuego': {'Planta': 2, 'Hielo': 2, 'Bicho': 2, 'Acero': 2, 'Fuego': 0.5, 'Agua': 0.5, 'Roca': 0.5, 'Dragón': 0.5},
-    'Tierra': {'Eléctrico': 2, 'Fuego': 2, 'Roca': 2, 'Veneno': 2, 'Acero': 2, 'Planta': 0.5, 'Bicho': 0.5, 'Volador': 0},
-    # Añade más tipos según sea necesario
+    'Acero': {'Acero': 0.5, 'Agua': 0.5, 'Eléctrico': 0.5, 'Fuego': 0.5, 'Hada': 2, 'Hielo': 2, 'Roca': 2},
+    'Agua': {'Fuego': 2, 'Agua': 0.5, 'Planta': 0.5, 'Tierra': 2, 'Roca': 2, 'Dragón': 0.5},
+    'Bicho': {'Acero': 0.5, 'Fantasma': 0.5, 'Fuego': 0.5, 'Hada': 0.5, 'Lucha': 0.5, 'Planta': 2, 'Psíquico': 2, 'Siniestro': 2, 'Veneno': 0.5},
+    'Dragón': {'Acero': 0.5, 'Dragón': 2, 'Hada': 0},
+    'Eléctrico': {'Agua': 2, 'Eléctrico': 0.5, 'Planta': 0.5, 'Tierra': 0, 'Volador': 2, 'Dragón': 0.5},
+    'Fantasma': {'Fantasma': 2, 'Normal': 0, 'Psíquico': 2, 'Siniestro': 0.5},
+    'Fuego': {'Fuego': 0.5, 'Agua': 0.5, 'Planta': 2, 'Hielo': 2, 'Bicho': 2, 'Roca': 0.5, 'Dragón': 0.5, 'Acero': 2},
+    'Hada': {'Acero': 0.5, 'Dragón': 2, 'Fuego': 0.5, 'Lucha': 2, 'Siniestro': 2, 'Veneno': 0.5},
+    'Hielo': {'Fuego': 0.5, 'Agua': 0.5, 'Planta': 2, 'Hielo': 0.5, 'Tierra': 2, 'Volador': 2, 'Dragón': 2, 'Acero': 0.5},
+    'Lucha': {'Acero': 2, 'Bicho': 0.5, 'Fantasma': 0, 'Hada': 0.5, 'Hielo': 2,'Normal': 2, 'Psíquico': 0.5, 'Roca': 2, 'Siniestro': 2, 'Veneno': 0.5},
+    'Normal': {'Roca': 0.5, 'Fantasma': 0, 'Acero': 0.5},
+    'Planta': {'Fuego': 0.5, 'Agua': 2, 'Planta': 0.5, 'Veneno': 0.5, 'Tierra': 2, 'Volador': 0.5, 'Bicho': 0.5, 'Roca': 2, 'Dragón': 0.5, 'Acero': 0.5},
+    'Psíquico': {'Acero': 0.5, 'Lucha': 2, 'Psíquico': 0.5, 'Siniestro': 0, 'Veneno': 2},
+    'Roca': {'Acero': 0.5, 'Bicho': 2, 'Fuego': 2, 'Hielo': 2, 'Lucha': 0.5, 'Tierra': 0.5, 'Volador': 2},
+    'Siniestro': {'Fantasma': 2, 'Hada': 0.5, 'Lucha': 0.5, 'Psíquico': 2, 'Siniestro': 0.5},
+    'Tierra': {'Acero': 2, 'Bicho': 0.5, 'Eléctrico': 2, 'Fuego': 2, 'Planta': 0.5, 'Roca': 2, 'Veneno': 2, 'Volador': 0},
+    'Veneno': {'Acero': 0, 'Hada': 2, 'Planta': 2, 'Roca': 0.5, 'Fantasma': 0.5, 'Veneno': 0.5, 'Tierra': 0.5},
+    'Volador': {'Acero': 0.5, 'Bicho': 2, 'Eléctrico': 0.5, 'Lucha': 2, 'Planta': 2, 'Roca': 0.5}
 }
 
 def calcular_ofensiva(tipo_atacante, tipos_defensor):

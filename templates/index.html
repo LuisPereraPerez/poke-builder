@@ -117,39 +117,48 @@
             }
         }
 
-        /* Estilos para el botón de borrar (la "×") */
-        .remove-btn {
-            position: absolute;
+        /* Estilos para el modal */
+        .modal {
+            display: none; /* Oculto por defecto */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
             top: 0;
-            right: 0;
-            background-color: #ff4d4d;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Fondo oscuro */
             justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            text-align: center;
+            position: relative;
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
             cursor: pointer;
-            font-size: 12px;
-            z-index: 1; /* Para que esté por encima de otros elementos */
         }
 
-        .remove-btn:hover {
-            background-color: #cc0000;
+        .equipo-recomendado {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
         }
 
-        /* Estilos para el contenedor del Pokémon seleccionado */
-        .selected-pokemon {
-            position: relative; /* Para que la "×" se posicione correctamente */
-            margin-top: 10px;
-            font-weight: bold;
-        }
-
-        .selected-pokemon img {
-            width: 50px;
-            height: 50px;
+        .equipo-recomendado img {
+            width: 80px;
+            height: 80px;
         }
     </style>
 </head>
@@ -193,6 +202,17 @@
         </div>
     </div>
     <button id="recomendar-btn">Recomendar Equipo</button>
+</div>
+
+<!-- Modal para mostrar el equipo recomendado -->
+<div id="modal-recomendacion" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Equipo Recomendado</h2>
+        <div id="equipo-recomendado" class="equipo-recomendado">
+            <!-- Aquí se mostrarán los Pokémon recomendados -->
+        </div>
+    </div>
 </div>
 
 <script>
@@ -264,7 +284,42 @@
         selectedPokemon.delete(input.value); // Eliminar el Pokémon del conjunto
     }
 
-    // Enviar el equipo rival al backend para obtener recomendaciones
+    // Obtener el modal y el botón de cerrar
+    const modal = document.getElementById("modal-recomendacion");
+    const closeBtn = document.querySelector(".close");
+
+    // Función para mostrar el modal con el equipo recomendado
+    function mostrarModalRecomendacion(equipoRecomendado) {
+        const equipoRecomendadoDiv = document.getElementById("equipo-recomendado");
+        equipoRecomendadoDiv.innerHTML = ""; // Limpiar contenido anterior
+
+        // Mostrar cada Pokémon recomendado
+        equipoRecomendado.forEach(pokemon => {
+            equipoRecomendadoDiv.innerHTML += `
+                <div class="pokemon-recomendado">
+                    <img src="https://img.pokemondb.net/sprites/home/normal/${pokemon.toLowerCase()}.png" alt="${pokemon}">
+                    <p>${pokemon}</p>
+                </div>
+            `;
+        });
+
+        // Mostrar el modal
+        modal.style.display = "flex";
+    }
+
+    // Cerrar el modal al hacer clic en la "×"
+    closeBtn.addEventListener("click", () => {
+        modal.style.display = "none";
+    });
+
+    // Cerrar el modal al hacer clic fuera del contenido
+    window.addEventListener("click", (event) => {
+        if (event.target === modal) {
+            modal.style.display = "none";
+        }
+    });
+
+    // Modificar la función del botón "Recomendar Equipo"
     document.getElementById("recomendar-btn").addEventListener("click", async () => {
         if (selectedPokemon.size === 6) {
             const equipoRival = Array.from(selectedPokemon);
@@ -278,7 +333,7 @@
                 });
                 const data = await response.json();
                 if (data.equipo_recomendado) {
-                    alert("Equipo recomendado: " + data.equipo_recomendado.join(", "));
+                    mostrarModalRecomendacion(data.equipo_recomendado); // Mostrar el modal con el equipo recomendado
                 } else {
                     alert("Error al obtener recomendaciones.");
                 }
@@ -289,13 +344,6 @@
         } else {
             alert("Por favor, selecciona 6 Pokémon.");
         }
-    });
-
-    // Agregar evento de clic a los inputs para borrar el Pokémon seleccionado
-    document.querySelectorAll(".pokemon-input").forEach(input => {
-        input.addEventListener("click", function () {
-            removePokemon(this);
-        });
     });
 </script>
 
