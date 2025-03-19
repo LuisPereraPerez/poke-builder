@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify
-from cassandra.cluster import Cluster
 from cassandra.query import dict_factory
+from cassandra.cluster import Cluster
+from cassandra.util import uuid
+import json
 
 app = Flask(__name__)
 
@@ -74,8 +76,26 @@ def recomendar_equipo(equipo_rival):
         return []
 
 @app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/index')
 def index():
     return render_template('index.html')
+
+@app.route('/box')
+def box():
+    return render_template('box.html')
+
+@app.route('/cajas')
+def ver_cajas():
+    return render_template('cajas.html')
+
+@app.route('/editar-caja')
+def editar_caja():
+    caja_id = request.args.get('id')
+    # Lógica para obtener y mostrar los datos de la caja
+    return render_template('editar_caja.html', caja_id=caja_id)
 
 @app.route('/pokemon', methods=['GET'])
 def get_pokemon():
@@ -140,6 +160,90 @@ def recomendar():
         return jsonify({"equipo_recomendado": equipo_recomendado})
     except Exception as e:
         print(f"Error al recomendar equipo: {e}")
+        return jsonify({"error": "Error al procesar la solicitud."}), 500
+
+# Ruta para crear una nueva caja
+@app.route('/crear-caja', methods=['POST'])
+def crear_caja():
+    try:
+        data = request.json
+        nombre = data.get('nombre')
+        pokemons = data.get('pokemons', [])
+
+        if not nombre or len(pokemons) != 30:
+            return jsonify({"error": "El nombre de la caja y 30 Pokémon son requeridos."}), 400
+
+        caja_id = uuid.uuid1()  # Generar un UUID único
+        session.execute(
+            "INSERT INTO cajas (id, nombre, pokemons) VALUES (%s, %s, %s)",
+            (caja_id, nombre, pokemons)
+        )
+
+        return jsonify({"message": "Caja creada correctamente.", "id": str(caja_id)})
+    except Exception as e:
+        print(f"Error al crear la caja: {e}")
+        return jsonify({"error": "Error al procesar la solicitud."}), 500
+
+# Ruta para obtener todas las cajas
+@app.route('/obtener-cajas', methods=['GET'])
+def obtener_cajas():
+    try:
+        rows = session.execute("SELECT id, nombre, pokemons FROM cajas")
+        cajas = [{"id": str(row["id"]), "nombre": row["nombre"], "pokemons": row["pokemons"]} for row in rows]
+        return jsonify(cajas)
+    except Exception as e:
+        print(f"Error al obtener las cajas: {e}")
+        return jsonify({"error": "Error al procesar la solicitud."}), 500
+    
+@app.route('/obtener-caja/<caja_id>', methods=['GET'])
+def obtener_caja(caja_id):
+    try:
+        # Obtener la caja desde la base de datos
+        caja = session.execute(
+            "SELECT nombre, pokemons FROM cajas WHERE id = %s",
+            (uuid.UUID(caja_id),)
+        ).one()
+
+        if caja:
+            return jsonify({
+                "nombre": caja["nombre"],
+                "pokemons": caja["pokemons"]
+            })
+        else:
+            return jsonify({"error": "Caja no encontrada"}), 404
+    except Exception as e:
+        print(f"Error al obtener la caja: {e}")
+        return jsonify({"error": "Error al procesar la solicitud"}), 500
+
+# Ruta para actualizar una caja
+@app.route('/actualizar-caja/<caja_id>', methods=['PUT'])
+def actualizar_caja(caja_id):
+    try:
+        data = request.json
+        nombre = data.get('nombre')
+        pokemons = data.get('pokemons', [])
+
+        if not nombre:
+            return jsonify({"error": "El nombre de la caja es requerido."}), 400
+
+        session.execute(
+            "UPDATE cajas SET nombre = %s, pokemons = %s WHERE id = %s",
+            (nombre, pokemons, uuid.UUID(caja_id))
+        )
+
+        return jsonify({"message": "Caja actualizada correctamente."})
+    except Exception as e:
+        print(f"Error al actualizar la caja: {e}")
+        return jsonify({"error": "Error al procesar la solicitud."}), 500
+
+# Ruta para eliminar una caja
+@app.route('/eliminar-caja/<caja_id>', methods=['DELETE'])
+def eliminar_caja(caja_id):
+    try:
+        session.execute("DELETE FROM cajas WHERE id = %s", (uuid.UUID(caja_id),))
+        return jsonify({"message": "Caja eliminada correctamente."})
+    except Exception as e:
+        print(f"Error al eliminar la caja: {e}")
         return jsonify({"error": "Error al procesar la solicitud."}), 500
 
 if __name__ == '__main__':

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poke-Builder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .box-system {
+            background-color: #ffcb05;
+        }
+        .recommend-team {
+            background-color: #3b4cca;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pokémon Team Builder 🎮</h1>
+        <h2>Poke-Builder</h2>
+        
+        <button class="box-system" onclick="window.location.href='/box'">Sistema de Cajas</button>
+        <button class="recommend-team" onclick="window.location.href='/index'">Recomendar Equipo</button>
+    </div>
+    
+    <script>
+        function boxSystem() {
+            alert("Accediendo al sistema de cajas...");
+        }
+        
+        function recommendTeam() {
+            alert("Recomendando un equipo Pokémon...");
+        }
+    </script>
+
+</body>
+</html>
