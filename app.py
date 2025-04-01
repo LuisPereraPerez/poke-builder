@@ -111,57 +111,146 @@ def get_pokemon():
 @app.route('/recomendar', methods=['POST'])
 def recomendar():
     try:
-        equipo_rival = request.json.get('equipo', [])
-        if len(equipo_rival) < 6:
-            return jsonify({"error": "Selecciona 6 Pokémon antes de continuar."}), 400
+        data = request.json
+        equipo_rival_nombres = data.get('equipo', [])
+        caja_id = data.get('caja_id')
+        
+        # Validación básica
+        if len(equipo_rival_nombres) != 6:
+            return jsonify({"error": "Debes seleccionar exactamente 6 Pokémon"}), 400
 
-        # Obtener los tipos de los Pokémon rivales
+        # 1. Obtener información completa de los Pokémon rivales
         equipo_rival_con_tipos = []
-        for nombre_pokemon in equipo_rival:
+        for nombre_pokemon in equipo_rival_nombres:
             pokemon = session.execute(
-                f"SELECT name, type1, type2 FROM pokemon WHERE name = '{nombre_pokemon}' ALLOW FILTERING"
+                "SELECT name, type1, type2 FROM pokemon WHERE name = %s ALLOW FILTERING",
+                [nombre_pokemon]
             ).one()
-            if pokemon:
-                equipo_rival_con_tipos.append({
-                    "name": pokemon["name"],
-                    "type1": pokemon["type1"],
-                    "type2": pokemon["type2"]
-                })
-
-        if len(equipo_rival_con_tipos) < 6:
-            return jsonify({"error": "No se encontraron todos los Pokémon en la base de datos."}), 400
-
-        # Obtener todos los Pokémon disponibles
-        rows = session.execute("SELECT name, type1, type2 FROM pokemon")
-        mejores_pokemon = []
-
-        # Calcular la efectividad de cada Pokémon contra el equipo rival
-        for pokemon in rows:
-            tipos_rival = [
-                [rival["type1"], rival["type2"]] 
-                for rival in equipo_rival_con_tipos 
-                if rival["type1"] and rival["type2"]
-            ]
-            ventaja = sum(
-                evaluar_combate([pokemon["type1"], pokemon["type2"]], tipos) 
-                for tipos in tipos_rival
-            )
-            mejores_pokemon.append({
+            
+            if not pokemon:
+                return jsonify({
+                    "error": f"Pokémon {nombre_pokemon} no encontrado en la base de datos"
+                }), 400
+                
+            equipo_rival_con_tipos.append({
                 "name": pokemon["name"],
-                "ventaja": ventaja
+                "type1": pokemon["type1"],
+                "type2": pokemon["type2"] if pokemon["type2"] else None
             })
 
-        # Ordenar los Pokémon por ventaja (de mayor a menor)
-        mejores_pokemon.sort(key=lambda x: x["ventaja"], reverse=True)
+        # 2. Determinar qué Pokémon considerar (todos o solo los de la caja)
+        if caja_id:
+            try:
+                # Obtener Pokémon de la caja específica
+                caja = session.execute(
+                    "SELECT pokemons FROM cajas WHERE id = %s",
+                    [uuid.UUID(caja_id)]
+                ).one()
+                
+                if not caja:
+                    return jsonify({"error": "La caja seleccionada no existe"}), 404
+                    
+                pokemons_disponibles = caja["pokemons"]
+                if not pokemons_disponibles:
+                    return jsonify({"error": "La caja seleccionada está vacía"}), 400
 
-        # Seleccionar los 6 Pokémon más efectivos
-        equipo_recomendado = [p["name"] for p in mejores_pokemon[:6]]
+                # Construir consulta para cada Pokémon de la caja (Cassandra no soporta bien IN con listas grandes)
+                mejores_pokemon = []
+                nombres_rivales = {p["name"] for p in equipo_rival_con_tipos}
+                
+                for pokemon_name in pokemons_disponibles:
+                    # Obtener información del Pokémon
+                    pokemon = session.execute(
+                        "SELECT name, type1, type2 FROM pokemon WHERE name = %s ALLOW FILTERING",
+                        [pokemon_name]
+                    ).one()
+                    
+                    if not pokemon:
+                        continue  # Si el Pokémon no existe, lo saltamos
+                        
+                    if pokemon["name"] in nombres_rivales:
+                        continue  # Excluir Pokémon que ya están en el equipo rival
+                    
+                    # Calcular ventaja contra cada Pokémon rival
+                    ventaja_total = 0
+                    tipos_pokemon = [tipo for tipo in [pokemon["type1"], pokemon["type2"]] if tipo]
+                    
+                    for rival in equipo_rival_con_tipos:
+                        tipos_rival = [tipo for tipo in [rival["type1"], rival["type2"]] if tipo]
+                        if not tipos_rival:
+                            continue
+                            
+                        ventaja_total += evaluar_combate(tipos_pokemon, tipos_rival)
+                    
+                    mejores_pokemon.append({
+                        "name": pokemon["name"],
+                        "ventaja": ventaja_total,
+                        "tipo1": pokemon["type1"],
+                        "tipo2": pokemon["type2"] if pokemon["type2"] else None
+                    })
 
-        return jsonify({"equipo_recomendado": equipo_recomendado})
+                # Ordenar y seleccionar los 6 mejores
+                mejores_pokemon.sort(key=lambda x: x["ventaja"], reverse=True)
+                equipo_recomendado = [p["name"] for p in mejores_pokemon[:6]]
+                
+                return jsonify({
+                    "equipo_recomendado": equipo_recomendado,
+                    "caja_usada": True,
+                    "pokemons_considerados": len(pokemons_disponibles)
+                })
+
+            except Exception as e:
+                print(f"Error al obtener caja: {str(e)}")
+                return jsonify({"error": "Error al procesar la caja seleccionada"}), 500
+        else:
+            # Usar todos los Pokémon (código existente)
+            rows = list(session.execute("SELECT name, type1, type2 FROM pokemon"))
+            mejores_pokemon = []
+            
+            for pokemon in rows:
+                ventaja_total = 0
+                tipos_pokemon = [tipo for tipo in [pokemon["type1"], pokemon["type2"]] if tipo]
+                
+                for rival in equipo_rival_con_tipos:
+                    tipos_rival = [tipo for tipo in [rival["type1"], rival["type2"]] if tipo]
+                    if not tipos_rival:
+                        continue
+                        
+                    ventaja_total += evaluar_combate(tipos_pokemon, tipos_rival)
+                
+                mejores_pokemon.append({
+                    "name": pokemon["name"],
+                    "ventaja": ventaja_total,
+                    "tipo1": pokemon["type1"],
+                    "tipo2": pokemon["type2"] if pokemon["type2"] else None
+                })
+
+            # Ordenar y seleccionar los mejores
+            mejores_pokemon.sort(key=lambda x: x["ventaja"], reverse=True)
+            
+            # Excluir Pokémon que ya están en el equipo rival
+            equipo_recomendado = []
+            nombres_rivales = {p["name"] for p in equipo_rival_con_tipos}
+            
+            for pokemon in mejores_pokemon:
+                if pokemon["name"] not in nombres_rivales:
+                    equipo_recomendado.append(pokemon["name"])
+                    if len(equipo_recomendado) >= 6:
+                        break
+
+            return jsonify({
+                "equipo_recomendado": equipo_recomendado,
+                "caja_usada": False,
+                "pokemons_considerados": len(rows)
+            })
+            
     except Exception as e:
-        print(f"Error al recomendar equipo: {e}")
-        return jsonify({"error": "Error al procesar la solicitud."}), 500
-
+        print(f"Error en endpoint /recomendar: {str(e)}")
+        return jsonify({
+            "error": "Error interno del servidor",
+            "detalle": str(e)
+        }), 500
+    
 # Ruta para crear una nueva caja
 @app.route('/crear-caja', methods=['POST'])
 def crear_caja():

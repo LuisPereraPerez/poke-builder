@@ -160,6 +160,30 @@
             width: 80px;
             height: 80px;
         }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        /* Estilo para ocultar elementos */
+        .hidden {
+            display: none;
+        }
+
+        /* Estilo para el selector de cajas */
+        #caja-selector {
+            margin-top: 15px;
+        }
+
+        #caja-select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -201,7 +225,23 @@
             <div class="selected-pokemon"></div>
         </div>
     </div>
-    <button id="recomendar-btn">Recomendar Equipo</button>
+
+    <div class="checkbox-container">
+        <label for="recomendar-cajas">Recomendar a partir de Cajas</label>
+        <input type="checkbox" id="recomendar-cajas">
+    </div>
+
+    <div id="caja-selector" class="hidden">
+        <label for="caja-select">Selecciona una caja:</label>
+        <select id="caja-select">
+            <option value="">Cargando cajas...</option>
+        </select>
+    </div>
+    
+    <div>
+        <button id="recomendar-btn">Recomendar Equipo</button>
+        <button id="home-btn" style="background: #dc3545; margin-top: 10px;">Volver al Inicio</button>
+    </div>
 </div>
 
 <!-- Modal para mostrar el equipo recomendado -->
@@ -214,6 +254,53 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.getElementById("home-btn").addEventListener("click", function() {
+        window.location.href = "/";
+    });
+</script>
+
+<script>
+    document.getElementById("recomendar-cajas").addEventListener("change", async function() {
+        const cajaSelector = document.getElementById("caja-selector");
+        const selectCaja = document.getElementById("caja-select");
+
+        if (this.checked) {
+            cajaSelector.classList.remove("hidden");
+
+            // Obtener las cajas desde el backend
+            try {
+                const response = await fetch("/obtener-cajas");
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Limpiar opciones anteriores
+                selectCaja.innerHTML = '<option value="">Selecciona una caja</option>';
+
+                // Verificar si hay datos y son un array
+                if (Array.isArray(data) && data.length > 0) {
+                    // Llenar el select con las cajas obtenidas
+                    data.forEach(caja => {
+                        let option = document.createElement("option");
+                        option.value = caja.id;
+                        option.textContent = caja.nombre || `Caja ${caja.id}`; // Usar nombre o un valor por defecto
+                        selectCaja.appendChild(option);
+                    });
+                } else {
+                    selectCaja.innerHTML = '<option value="">No hay cajas disponibles</option>';
+                }
+            } catch (error) {
+                console.error("Error al obtener las cajas:", error);
+                selectCaja.innerHTML = '<option value="">Error al cargar las cajas</option>';
+            }
+        } else {
+            cajaSelector.classList.add("hidden");
+        }
+    });
+</script>
 
 <script>
     let pokemonList = [];
@@ -323,19 +410,28 @@
     document.getElementById("recomendar-btn").addEventListener("click", async () => {
         if (selectedPokemon.size === 6) {
             const equipoRival = Array.from(selectedPokemon);
+            const usarCajas = document.getElementById("recomendar-cajas").checked;
+            const cajaId = usarCajas ? document.getElementById("caja-select").value : null;
+            
             try {
                 const response = await fetch("/recomendar", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({ equipo: equipoRival }),
+                    body: JSON.stringify({ 
+                        equipo: equipoRival,
+                        caja_id: cajaId 
+                    }),
                 });
                 const data = await response.json();
+                
                 if (data.equipo_recomendado) {
-                    mostrarModalRecomendacion(data.equipo_recomendado); // Mostrar el modal con el equipo recomendado
+                    // Extraer solo los nombres si la respuesta incluye objetos
+                    const nombres = data.equipo_recomendado.map(p => p.name || p);
+                    mostrarModalRecomendacion(nombres);
                 } else {
-                    alert("Error al obtener recomendaciones.");
+                    alert(data.error || "Error al obtener recomendaciones.");
                 }
             } catch (error) {
                 console.error("Error:", error);
