@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Caja</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 16px;
+            color: #666;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        input {
+            width: 100%;
+            max-width: 300px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .suggestions {
+            position: absolute;
+            width: 100%;
+            max-width: 300px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: none;
+            z-index: 10;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .suggestions li {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .suggestions li:hover {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .selected-pokemon {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .selected-pokemon-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+        }
+
+        .selected-pokemon-row div {
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+
+        .selected-pokemon-row img {
+            width: 50px;
+            height: 50px;
+        }
+
+        .selected-pokemon-row .remove {
+            color: red;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .cajas-lista {
+            margin-top: 20px;
+        }
+
+        .caja-item {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+
+        .caja-item h3 {
+            margin: 0;
+        }
+
+        .caja-item button {
+            margin-left: 10px;
+        }
+
+        /* Nuevos estilos para el formulario de caja */
+        .formulario-caja {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .formulario-caja input {
+            flex: 1;
+            max-width: none;
+        }
+
+        .formulario-caja button {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Editar Caja 📦</h1>
+        <p>Modifica los Pokémon y el nombre de la caja.</p>
+
+        <!-- Formulario para editar la caja -->
+        <div class="formulario-caja">
+            <input type="text" id="nombre-caja" placeholder="Nombre de la caja">
+            <button id="guardar-caja">Guardar Cambios</button>
+        </div>
+
+        <!-- Campo de búsqueda de Pokémon -->
+        <div class="search-box">
+            <input type="text" id="pokemon-input" placeholder="Buscar Pokémon">
+            <ul class="suggestions" id="suggestions"></ul>
+        </div>
+
+        <!-- Pokémon seleccionados -->
+        <div class="selected-pokemon" id="selected-pokemon"></div>
+
+        <!-- Botón para volver a la página de cajas -->
+        <button onclick="window.location.href='/cajas'">Volver a Cajas</button>
+    </div>
+
+    <script>
+        let pokemonList = [];
+        const selectedPokemon = new Set();
+        let cajaId = null;
+
+        // Obtener el ID de la caja desde la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        cajaId = urlParams.get('id');
+
+        // Obtener la lista de Pokémon desde el backend
+        async function fetchPokemonList() {
+            try {
+                const response = await fetch("/pokemon");
+                const data = await response.json();
+                pokemonList = data;
+            } catch (error) {
+                console.error("Error al obtener la lista de Pokémon:", error);
+            }
+        }
+
+        // Obtener los datos de la caja desde el backend
+        async function fetchCaja() {
+            try {
+                const response = await fetch(`/obtener-caja/${cajaId}`);
+                const data = await response.json();
+                if (data) {
+                    // Establecer el nombre de la caja en el input
+                    document.getElementById("nombre-caja").value = data.nombre;
+
+                    // Añadir los Pokémon de la caja al conjunto de Pokémon seleccionados
+                    data.pokemons.forEach(pokemon => selectedPokemon.add(pokemon));
+
+                    // Actualizar la interfaz para mostrar los Pokémon seleccionados
+                    updateSelectedPokemon();
+                }
+            } catch (error) {
+                console.error("Error al obtener la caja:", error);
+            }
+        }
+
+        // Lógica de búsqueda y selección de Pokémon
+        const input = document.getElementById("pokemon-input");
+        const suggestionsBox = document.getElementById("suggestions");
+        const selectedPokemonDiv = document.getElementById("selected-pokemon");
+
+        input.addEventListener("input", function () {
+            let value = this.value.toLowerCase();
+            suggestionsBox.innerHTML = "";
+
+            if (value.length > 0) {
+                let filtered = pokemonList.filter(pokemon =>
+                    pokemon.toLowerCase().startsWith(value) && !selectedPokemon.has(pokemon)
+                );
+
+                if (filtered.length > 0) {
+                    suggestionsBox.style.display = "block";
+                    filtered.forEach(pokemon => {
+                        let listItem = document.createElement("li");
+                        listItem.textContent = pokemon;
+                        listItem.addEventListener("click", () => {
+                            if (selectedPokemon.size < 30) {
+                                input.value = "";
+                                selectedPokemon.add(pokemon);
+                                suggestionsBox.style.display = "none";
+                                updateSelectedPokemon();
+                            } else {
+                                alert("Has alcanzado el límite máximo de 30 Pokémon.");
+                            }
+                        });
+                        suggestionsBox.appendChild(listItem);
+                    });
+                } else {
+                    suggestionsBox.style.display = "none";
+                }
+            } else {
+                suggestionsBox.style.display = "none";
+            }
+        });
+
+        // Actualizar la lista de Pokémon seleccionados
+        function updateSelectedPokemon() {
+            selectedPokemonDiv.innerHTML = "";
+            let pokemonArray = Array.from(selectedPokemon);
+            for (let i = 0; i < 5; i++) {
+                let row = document.createElement("div");
+                row.className = "selected-pokemon-row";
+                for (let j = 0; j < 6; j++) {
+                    let index = i * 6 + j;
+                    if (index < pokemonArray.length) {
+                        let pokemon = pokemonArray[index];
+                        row.innerHTML += `
+                            <div>
+                                <img src="https://img.pokemondb.net/sprites/home/normal/${pokemon.toLowerCase()}.png" alt="${pokemon}">
+                                <p>${pokemon}</p>
+                                <span class="remove" onclick="removePokemon('${pokemon}')">Eliminar</span>
+                            </div>
+                        `;
+                    } else {
+                        row.innerHTML += `<div></div>`;
+                    }
+                }
+                selectedPokemonDiv.appendChild(row);
+            }
+        }
+        // Eliminar un Pokémon seleccionado
+        function removePokemon(pokemon) {
+            selectedPokemon.delete(pokemon);
+            updateSelectedPokemon();
+        }
+
+        // Guardar los cambios en la caja
+        document.getElementById("guardar-caja").addEventListener("click", async () => {
+            const nombre = document.getElementById("nombre-caja").value;
+            if (!nombre) {
+                alert("Debes proporcionar un nombre para la caja.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/actualizar-caja/${cajaId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ nombre, pokemons: Array.from(selectedPokemon) }),
+                });
+                if (response.ok) {
+                    alert("Caja actualizada correctamente.");
+                    window.location.href = "/cajas"; // Redirigir a la página de cajas
+                } else {
+                    alert("Error al actualizar la caja.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error al conectar con el servidor.");
+            }
+        });
+
+        // Llamar a las funciones al cargar la página
+        fetchPokemonList();
+        fetchCaja();
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+docker exec -it practica3_cassandra cqlsh
+
+CREATE KEYSPACE poke_builder WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+
+USE poke_builder;
+
+CREATE TABLE pokemon (id UUID PRIMARY KEY,num_pokedex INT,name TEXT, type1 TEXT, type2 TEXT, total INT, hp INT, attack INT, defense INT, sp_attack INT,  sp_defense INT,  speed INT, generation INT, lengendary TEXT);
+
+CREATE TABLE cajas ( id UUID PRIMARY KEY, nombre TEXT, pokemons LIST<TEXT>);
