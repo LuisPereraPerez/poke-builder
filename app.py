@@ -3,8 +3,13 @@ from cassandra.query import dict_factory
 from cassandra.cluster import Cluster
 from cassandra.util import uuid
 import json
+import random
+from flask import session as flask_session
+import os
 
 app = Flask(__name__)
+
+app.secret_key = os.urandom(24)  # Necesario para usar `session`
 
 # Conectar a Cassandra
 cluster = Cluster(['127.0.0.1'])
@@ -77,6 +82,10 @@ def box():
 @app.route('/cajas')
 def ver_cajas():
     return render_template('cajas.html')
+
+@app.route('/poke-wordle')
+def poke_wordle():
+    return render_template('poke-wordle.html')
 
 @app.route('/editar-caja')
 def editar_caja():
@@ -226,6 +235,142 @@ def eliminar_caja(caja_id):
     except Exception as e:
         print(f"Error al eliminar la caja: {e}")
         return jsonify({"error": "Error al procesar la solicitud."}), 500
+    
+@app.route('/pokemon-caracteristicas', methods=['GET'])
+def get_pokemon_caracteristicas():
+    try:
+        name = request.args.get('name')
+        if not name:
+            return jsonify({"error": "Nombre del Pokémon requerido"}), 400
+        
+        pokemon = session.execute(
+            "SELECT name, type1, type2, hp, attack, defense, sp_attack, sp_defense, speed, generation, lengendary "
+            "FROM pokemon WHERE name = %s ALLOW FILTERING",
+            [name]
+        ).one()
+        
+        if not pokemon:
+            return jsonify({"error": f"Pokémon {name} no encontrado"}), 404
+        
+        return jsonify({
+            "name": pokemon["name"],
+            "type1": pokemon["type1"],
+            "type2": pokemon["type2"],
+            "hp": pokemon["hp"],
+            "attack": pokemon["attack"],
+            "defense": pokemon["defense"],
+            "sp_attack": pokemon["sp_attack"],
+            "sp_defense": pokemon["sp_defense"],
+            "speed": pokemon["speed"],
+            "generation": pokemon["generation"],
+            "lengendary": pokemon["lengendary"]
+        })
+    except Exception as e:
+        print(f"Error al obtener características del Pokémon: {e}")
+        return jsonify({"error": "Error al procesar la solicitud"}), 500
 
+@app.route('/pokemon-aleatorio', methods=['GET'])
+def pokemon_aleatorio():
+    try:
+        # Obtener todos los nombres
+        rows = session.execute("SELECT name FROM pokemon")
+        nombres = [row["name"] for row in rows]
+
+        if not nombres:
+            return jsonify({"error": "No hay Pokémon disponibles."}), 404
+
+        # Elegir uno al azar
+        nombre_aleatorio = random.choice(nombres)
+
+        # Obtener sus características
+        pokemon = session.execute(
+            "SELECT name, type1, type2, hp, attack, defense, sp_attack, sp_defense, speed, generation, lengendary "
+            "FROM pokemon WHERE name = %s ALLOW FILTERING",
+            [nombre_aleatorio]
+        ).one()
+
+        if not pokemon:
+            return jsonify({"error": "No se pudo encontrar el Pokémon seleccionado"}), 404
+
+        return jsonify({
+            "name": pokemon["name"],
+            "type1": pokemon["type1"],
+            "type2": pokemon["type2"],
+            "hp": pokemon["hp"],
+            "attack": pokemon["attack"],
+            "defense": pokemon["defense"],
+            "sp_attack": pokemon["sp_attack"],
+            "sp_defense": pokemon["sp_defense"],
+            "speed": pokemon["speed"],
+            "generation": pokemon["generation"],
+            "lengendary": pokemon["lengendary"]
+        })
+    except Exception as e:
+        print(f"Error al obtener Pokémon aleatorio: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+    
+@app.route('/generar-wordle', methods=['GET'])
+def generar_wordle():
+    try:
+        rows = session.execute("SELECT name FROM pokemon")
+        nombres = [row["name"] for row in rows]
+        if not nombres:
+            return jsonify({"error": "No hay Pokémon disponibles."}), 404
+
+        nombre_aleatorio = random.choice(nombres)
+
+        # Guardamos en la sesión
+        flask_session['pokemon_wordle'] = nombre_aleatorio
+
+        return jsonify({"message": "Pokémon generado para Wordle."})
+    except Exception as e:
+        print(f"Error al generar Pokémon Wordle: {e}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+@app.route('/verificar-wordle', methods=['GET'])
+def verificar_wordle():
+    try:
+        nombre_intento = request.args.get('nombre')
+        objetivo_nombre = flask_session.get('pokemon_wordle')
+
+        if not objetivo_nombre:
+            return jsonify({"error": "No se ha generado un Pokémon Wordle aún."}), 400
+
+        intento = session.execute("SELECT * FROM pokemon WHERE name = %s ALLOW FILTERING", [nombre_intento]).one()
+        objetivo = session.execute("SELECT * FROM pokemon WHERE name = %s ALLOW FILTERING", [objetivo_nombre]).one()
+
+        if not intento:
+            return jsonify({"error": f"No se encontró el Pokémon '{nombre_intento}'"}), 404
+
+        def comparar_stats(valor1, valor2):
+            """Función solo para stats (hp, attack, etc.) que compara mayor/menor/igual"""
+            if valor1 == valor2:
+                return "correct"
+            return "high" if valor1 > valor2 else "low"
+
+        def comparar_igual(valor1, valor2):
+            """Función para el resto de atributos que solo compara igual/diferente"""
+            return "correct" if valor1 == valor2 else "incorrect"
+
+        comparacion = {
+            "name": {"value": intento["name"], "estado": comparar_igual(intento["name"], objetivo["name"])},
+            "type1": {"value": intento["type1"], "estado": comparar_igual(intento["type1"], objetivo["type1"])},
+            "type2": {"value": intento["type2"], "estado": comparar_igual(intento["type2"], objetivo["type2"])},
+            "hp": {"value": intento["hp"], "estado": comparar_stats(intento["hp"], objetivo["hp"])},
+            "attack": {"value": intento["attack"], "estado": comparar_stats(intento["attack"], objetivo["attack"])},
+            "defense": {"value": intento["defense"], "estado": comparar_stats(intento["defense"], objetivo["defense"])},
+            "sp_attack": {"value": intento["sp_attack"], "estado": comparar_stats(intento["sp_attack"], objetivo["sp_attack"])},
+            "sp_defense": {"value": intento["sp_defense"], "estado": comparar_stats(intento["sp_defense"], objetivo["sp_defense"])},
+            "speed": {"value": intento["speed"], "estado": comparar_stats(intento["speed"], objetivo["speed"])},
+            "generation": {"value": intento["generation"], "estado": comparar_igual(intento["generation"], objetivo["generation"])},
+            "legendary": {"value": intento["lengendary"], "estado": comparar_igual(intento["lengendary"], objetivo["lengendary"])}
+        }
+
+        return jsonify(comparacion)
+
+    except Exception as e:
+        print(f"Error en Wordle: {e}")
+        return jsonify({"error": "Error al verificar intento"}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)

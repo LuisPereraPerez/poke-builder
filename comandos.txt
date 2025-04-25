@@ -9,3 +9,11 @@ CREATE TABLE pokemon (id UUID PRIMARY KEY,num_pokedex INT,name TEXT, type1 TEXT,
 CREATE TABLE cajas ( id UUID PRIMARY KEY, nombre TEXT, pokemons LIST<TEXT>);
 
 python insertar.py 
+
+
+video - presentacion pp - codigo - memoria
+
+ideas: 
+    - adivina el pokemon por caracteristicas
+    - high or lower con caracteristicas
+    
